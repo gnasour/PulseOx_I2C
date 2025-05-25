@@ -26,7 +26,7 @@
 
 #define I2C_SPEED_STANDARD        100000
 #define I2C_SPEED_FAST            400000
-#define I2C_BUFFER_LENGTH         192
+#define I2C_BUFFER_LENGTH         192        // Max number of reads possible from a full FIFO buffer
 
 #define delay(delay_ms) busy_wait_ms(delay_ms)
 #define millis() time_us_32()

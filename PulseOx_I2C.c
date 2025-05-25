@@ -15,6 +15,7 @@
 
 //Pico Defined Headers
 #include <stdio.h>
+#include <string.h>
 #include "pico/stdlib.h"
 #include "hardware/uart.h"
 
@@ -31,22 +32,21 @@
 #define BAUD_RATE 115200
 
 // Use pins 4 and 5 for UART1
-// Pins can be changed, see the GPIO function select table in the datasheet for information on GPIO assignments
 #define UART_TX_PIN 0
 #define UART_RX_PIN 1
 
 
-uint8_t readByte;  // Single Reads from MAX30102
-uint8_t readByteStream[I2C_BUFFER_LENGTH]; // Max number of reads possible from a full FIFO buffer
-uint8_t writePacket[2]; // Write transaction: writePacket[0]=reg addr, writePacket[1]=val 
+uint8_t readByte;  
+uint8_t readByteStream[I2C_BUFFER_LENGTH];
+uint8_t writePacket[2]; // writePacket[0] = device reg addr, writePacket[1] = val 
 
 
 void panic_blink(){
     while(true){
-    gpio_put(PICO_DEFAULT_LED_PIN, true);
-    sleep_ms(200);
-    gpio_put(PICO_DEFAULT_LED_PIN, false);
-    sleep_ms(200);
+      gpio_put(PICO_DEFAULT_LED_PIN, true);
+      sleep_ms(200);
+      gpio_put(PICO_DEFAULT_LED_PIN, false);
+      sleep_ms(200);
     }
 }
 
@@ -97,14 +97,16 @@ void softReset(void) {
     }
 }
 
-void shutDown(void) {
+void shutDown(void)
+{
     // Put IC into low power mode (datasheet pg. 19)
     // During shutdown the IC will continue to respond to I2C commands but will
     // not update with or take new readings (such as temperature)
     bitMask(MAX30102_MODECONFIG, MAX30102_SHUTDOWN_MASK, MAX30102_SHUTDOWN);
 }
 
-void wakeUp(void) {
+void wakeUp(void) 
+{
     // Pull IC out of low power mode (datasheet pg. 19)
     bitMask(MAX30102_MODECONFIG, MAX30102_SHUTDOWN_MASK, MAX30102_WAKEUP);
 }
@@ -114,51 +116,50 @@ void wakeUp(void) {
 //
 
 //
-// Configuration
+// Interrupt Configuration
 //
 
-//Begin Interrupt configuration
 uint8_t getINT1(void) {
     return (readRegister8(_i2caddr, MAX30102_INTSTAT1));
-  }
-  uint8_t getINT2(void) {
-    return (readRegister8(_i2caddr, MAX30102_INTSTAT2));
-  }
-  
-  void enableAFULL(void) {
-    bitMask(MAX30102_INTENABLE1, MAX30102_INT_A_FULL_MASK, MAX30102_INT_A_FULL_ENABLE);
-  }
-  void disableAFULL(void) {
-    bitMask(MAX30102_INTENABLE1, MAX30102_INT_A_FULL_MASK, MAX30102_INT_A_FULL_DISABLE);
-  }
-  
-  void enableDATARDY(void) {
-    bitMask(MAX30102_INTENABLE1, MAX30102_INT_DATA_RDY_MASK, MAX30102_INT_DATA_RDY_ENABLE);
-  }
-  void disableDATARDY(void) {
-    bitMask(MAX30102_INTENABLE1, MAX30102_INT_DATA_RDY_MASK, MAX30102_INT_DATA_RDY_DISABLE);
-  }
-  
-  void enableALCOVF(void) {
-    bitMask(MAX30102_INTENABLE1, MAX30102_INT_ALC_OVF_MASK, MAX30102_INT_ALC_OVF_ENABLE);
-  }
-  void disableALCOVF(void) {
-    bitMask(MAX30102_INTENABLE1, MAX30102_INT_ALC_OVF_MASK, MAX30102_INT_ALC_OVF_DISABLE);
-  }
-  
-  void enablePROXINT(void) {
-    bitMask(MAX30102_INTENABLE1, MAX30102_INT_PROX_INT_MASK, MAX30102_INT_PROX_INT_ENABLE);
-  }
-  void disablePROXINT(void) {
-    bitMask(MAX30102_INTENABLE1, MAX30102_INT_PROX_INT_MASK, MAX30102_INT_PROX_INT_DISABLE);
-  }
-  
-  void enableDIETEMPRDY(void) {
-    bitMask(MAX30102_INTENABLE2, MAX30102_INT_DIE_TEMP_RDY_MASK, MAX30102_INT_DIE_TEMP_RDY_ENABLE);
-  }
-  void disableDIETEMPRDY(void) {
-    bitMask(MAX30102_INTENABLE2, MAX30102_INT_DIE_TEMP_RDY_MASK, MAX30102_INT_DIE_TEMP_RDY_DISABLE);
-  }
+}
+uint8_t getINT2(void) {
+  return (readRegister8(_i2caddr, MAX30102_INTSTAT2));
+}
+
+void enableAFULL(void) {
+  bitMask(MAX30102_INTENABLE1, MAX30102_INT_A_FULL_MASK, MAX30102_INT_A_FULL_ENABLE);
+}
+void disableAFULL(void) {
+  bitMask(MAX30102_INTENABLE1, MAX30102_INT_A_FULL_MASK, MAX30102_INT_A_FULL_DISABLE);
+}
+
+void enableDATARDY(void) {
+  bitMask(MAX30102_INTENABLE1, MAX30102_INT_DATA_RDY_MASK, MAX30102_INT_DATA_RDY_ENABLE);
+}
+void disableDATARDY(void) {
+  bitMask(MAX30102_INTENABLE1, MAX30102_INT_DATA_RDY_MASK, MAX30102_INT_DATA_RDY_DISABLE);
+}
+
+void enableALCOVF(void) {
+  bitMask(MAX30102_INTENABLE1, MAX30102_INT_ALC_OVF_MASK, MAX30102_INT_ALC_OVF_ENABLE);
+}
+void disableALCOVF(void) {
+  bitMask(MAX30102_INTENABLE1, MAX30102_INT_ALC_OVF_MASK, MAX30102_INT_ALC_OVF_DISABLE);
+}
+
+void enablePROXINT(void) {
+  bitMask(MAX30102_INTENABLE1, MAX30102_INT_PROX_INT_MASK, MAX30102_INT_PROX_INT_ENABLE);
+}
+void disablePROXINT(void) {
+  bitMask(MAX30102_INTENABLE1, MAX30102_INT_PROX_INT_MASK, MAX30102_INT_PROX_INT_DISABLE);
+}
+
+void enableDIETEMPRDY(void) {
+  bitMask(MAX30102_INTENABLE2, MAX30102_INT_DIE_TEMP_RDY_MASK, MAX30102_INT_DIE_TEMP_RDY_ENABLE);
+}
+void disableDIETEMPRDY(void) {
+  bitMask(MAX30102_INTENABLE2, MAX30102_INT_DIE_TEMP_RDY_MASK, MAX30102_INT_DIE_TEMP_RDY_DISABLE);
+}
 
 //
 // End Interrupt configuration
@@ -168,18 +169,21 @@ uint8_t getINT1(void) {
 // Mode Configuration
 //
 
-void setLEDMode(uint8_t mode) {
+void setLEDMode(uint8_t mode) 
+{
   // Set which LEDs are used for sampling -- Red only, RED+IR only, or custom.
   // See datasheet, page 19
   bitMask(MAX30102_MODECONFIG, MAX30102_MODE_MASK, mode);
 }
 
-void setADCRange(uint8_t adcRange) {
+void setADCRange(uint8_t adcRange) 
+{
   // adcRange: one of MAX30102_ADCRANGE_2048, _4096, _8192, _16384
   bitMask(MAX30102_PARTICLECONFIG, MAX30102_ADCRANGE_MASK, adcRange);
 }
 
-void setSampleRate(uint8_t sampleRate) {
+void setSampleRate(uint8_t sampleRate) 
+{
   // sampleRate: one of MAX30102_SAMPLERATE_50, _100, _200, _400, _800, _1000, _1600, _3200
   bitMask(MAX30102_PARTICLECONFIG, MAX30102_SAMPLERATE_MASK, sampleRate);
 }
@@ -360,6 +364,7 @@ void setup(byte powerLevel, byte sampleAverage, byte ledMode, int sampleRate, in
   if (ledMode == 3) setLEDMode(MAX30102_MODE_MULTILED); //Watch all three LED channels
   else if (ledMode == 2) setLEDMode(MAX30102_MODE_REDIRONLY); //Red and IR
   else setLEDMode(MAX30102_MODE_REDONLY); //Red only
+  if(ledMode > 2) ledMode = 2;
   activeLEDs = ledMode; //Used to control how many bytes to read from FIFO buffer
   //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
@@ -424,6 +429,7 @@ void setup(byte powerLevel, byte sampleAverage, byte ledMode, int sampleRate, in
 //Tell caller how many samples are available
 uint8_t available(void)
 {
+
   int8_t numberOfSamples = sense.head - sense.tail;
   if (numberOfSamples < 0) numberOfSamples += STORAGE_SIZE;
 
@@ -517,10 +523,9 @@ uint16_t check(void)
     // _i2cPort->beginTransmission(MAX30102_ADDRESS);
     // _i2cPort->write(MAX30102_FIFODATA);
     // _i2cPort->endTransmission();
-    i2c_write_blocking(_i2cPort, _i2caddr, &MAX30102_FIFODATA, 1, false);
+    i2c_write_blocking(_i2cPort, _i2caddr, &MAX30102_FIFODATA, 1, true);
 
-    //We may need to read as many as 288 bytes so we read in blocks no larger than I2C_BUFFER_LENGTH
-    //I2C_BUFFER_LENGTH changes based on the platform. 64 bytes for SAMD21, 32 bytes for Uno.
+    //We may need to read as many as 192 bytes so we read in blocks no larger than I2C_BUFFER_LENGTH
     //Wire.requestFrom() is limited to BUFFER_LENGTH which is 32 on the Uno
     while (bytesLeftToRead > 0)
     {
@@ -537,7 +542,7 @@ uint16_t check(void)
       bytesLeftToRead -= toGet;
 
       //Request toGet number of bytes from sensor
-      i2c_read_burst_blocking(_i2cPort, _i2caddr, readByteStream, );
+      i2c_read_burst_blocking(_i2cPort, _i2caddr, readByteStream, toGet);
       
       while (toGet > 0)
       {
@@ -549,48 +554,48 @@ uint16_t check(void)
 
         //Burst read three bytes - RED
         temp[3] = 0;
-        temp[2] = _i2cPort->read();
-        temp[1] = _i2cPort->read();
-        temp[0] = _i2cPort->read();
+        temp[2] = readByteStream[0];
+        temp[1] = readByteStream[1];
+        temp[0] = readByteStream[2];
 
         //Convert array to long
         memcpy(&tempLong, temp, sizeof(tempLong));
-		
-		tempLong &= 0x3FFFF; //Zero out all but 18 bits
-
+	      tempLong &= 0x3FFFF; //Zero out all but 18 bits
         sense.red[sense.head] = tempLong; //Store this reading into the sense array
 
         if (activeLEDs > 1)
         {
           //Burst read three more bytes - IR
           temp[3] = 0;
-          temp[2] = _i2cPort->read();
-          temp[1] = _i2cPort->read();
-          temp[0] = _i2cPort->read();
+          temp[2] = readByteStream[3];
+          temp[1] = readByteStream[4];
+          temp[0] = readByteStream[5];
 
           //Convert array to long
           memcpy(&tempLong, temp, sizeof(tempLong));
-
-		  tempLong &= 0x3FFFF; //Zero out all but 18 bits
-          
-		  sense.IR[sense.head] = tempLong;
+          tempLong &= 0x3FFFF; //Zero out all but 18 bits
+          sense.IR[sense.head] = tempLong;
         }
 
-        if (activeLEDs > 2)
-        {
-          //Burst read three more bytes - Green
-          temp[3] = 0;
-          temp[2] = _i2cPort->read();
-          temp[1] = _i2cPort->read();
-          temp[0] = _i2cPort->read();
+      // *****Currently unused for MAX30102*****
 
-          //Convert array to long
-          memcpy(&tempLong, temp, sizeof(tempLong));
+      //   if (activeLEDs > 2)
+      //   {
+      //     //Burst read three more bytes - Green
+      //     temp[3] = 0;
+      //     temp[2] = _i2cPort->read();
+      //     temp[1] = _i2cPort->read();
+      //     temp[0] = _i2cPort->read();
 
-		  tempLong &= 0x3FFFF; //Zero out all but 18 bits
+      //     //Convert array to long
+      //     memcpy(&tempLong, temp, sizeof(tempLong));
 
-          sense.green[sense.head] = tempLong;
-        }
+		  // tempLong &= 0x3FFFF; //Zero out all but 18 bits
+
+      //     sense.green[sense.head] = tempLong;
+      //   }
+      
+      // ***************************************
 
         toGet -= activeLEDs * 3;
       }
@@ -659,13 +664,6 @@ void writeRegister8(uint8_t address, uint8_t reg, uint8_t value) {
 //
 // End Low-level I2C Communication
 //
-
-uint8_t available(void) {
-  int8_t numberOfSamples = sense.head - sense.tail;
-  if (numberOfSamples < 0) numberOfSamples += STORAGE_SIZE;
-
-  return (numberOfSamples);
-}
 
 int main()
 {
