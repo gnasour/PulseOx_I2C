@@ -406,8 +406,6 @@ void setup(byte powerLevel, byte sampleAverage, byte ledMode, int sampleRate, in
 
   setPulseAmplitudeRed(powerLevel);
   setPulseAmplitudeIR(powerLevel);
-  setPulseAmplitudeGreen(powerLevel);
-  setPulseAmplitudeProximity(powerLevel);
   //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
   //Multi-LED Mode Configuration, Enable the reading of the three LEDs
@@ -665,6 +663,18 @@ void writeRegister8(uint8_t address, uint8_t reg, uint8_t value) {
 // End Low-level I2C Communication
 //
 
+#define MAX_BRIGHTNESS 255
+
+uint32_t irBuffer[100]; //infrared LED sensor data
+uint32_t redBuffer[100];  //red LED sensor data
+int32_t bufferLength; //data length
+int32_t spo2; //SPO2 value
+int8_t validSPO2; //indicator to show if the SPO2 calculation is valid
+int32_t heartRate; //heart rate value
+int8_t validHeartRate; //indicator to show if the heart rate calculation is valid
+byte pulseLED = 11; //Must be on PWM pin
+byte readLED = 13; //Blinks with each data read
+
 int main()
 {
     int ack;
@@ -673,7 +683,7 @@ int main()
 
     stdio_init_all();
 
-    init(I2C_PORT, I2C_SPEED_STANDARD, MAX30102_ADDRESS);
+    init(I2C_PORT, I2C_SPEED_FAST, MAX30102_ADDRESS);
     
     gpio_set_function(I2C_SDA, GPIO_FUNC_I2C);
     gpio_set_function(I2C_SCL, GPIO_FUNC_I2C);
@@ -694,35 +704,18 @@ int main()
     // // Send out a string, with CR/LF conversions
     // uart_puts(UART_ID, " Hello, UART!\n");
 
-    // Transmit initial configuration to MAX unit
-    // Test to see if i2c wrote to slave
-    writePacket[0]=0x09;
-    writePacket[1]=0x02;
-    ack = i2c_write_blocking(I2C_PORT, MAX30102_ADDRESS, writePacket, 2, false);
-    //ack = i2c_write_blocking(I2C_PORT, MAX30102_ADDRESS, &writePacket[1], 1, false);
-    
-    //Set LED amplitude
-    writePacket[0]=0x0C;
-    writePacket[1]=0xF0;
-    ack = i2c_write_blocking(I2C_PORT, MAX30102_ADDRESS, writePacket, 2, false);
-    //ack = i2c_write_blocking(I2C_PORT, MAX30102_ADDRESS, &writePacket[1], 1, false);
+    // Set up our MAX30102 peripheral
+    byte ledBrightness = 255; //Options: 0=Off to 255=50mA
+    byte sampleAverage = 4; //Options: 1, 2, 4, 8, 16, 32
+    byte ledMode = 2; //Options: 1 = Red only, 2 = Red + IR, 3 = Red + IR + Green
+    byte sampleRate = 100; //Options: 50, 100, 200, 400, 800, 1000, 1600, 3200
+    int pulseWidth = 411; //Options: 69, 118, 215, 411
+    int adcRange = 16384; //Options: 2048, 4096, 8192, 16384
 
-    //enable LED1(red) for SLOT1 in MULTI-LED ctrl reg
-    writePacket[0]=0x11;
-    writePacket[1]=0x01;
-    ack = i2c_write_blocking(I2C_PORT, MAX30102_ADDRESS, writePacket, 2, false);
-    //ack = i2c_write_blocking(I2C_PORT, MAX30102_ADDRESS, &writePacket[1], 1, false);
-     
- 
-    
-    
-
-    
+    setup(ledBrightness, sampleAverage, ledMode, sampleRate, pulseWidth, adcRange);
+   
     while (true) {
-    
-       
-        
-    
+      panic_blink();
         
     }
 }
