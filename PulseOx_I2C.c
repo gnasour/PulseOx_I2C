@@ -31,7 +31,7 @@
 #define UART_ID uart0
 #define BAUD_RATE 115200
 
-// Use pins 4 and 5 for UART1
+
 #define UART_TX_PIN 0
 #define UART_RX_PIN 1
 
@@ -691,17 +691,16 @@ int main()
     gpio_pull_up(I2C_SCL);
 
     // Test LED initialization
-    gpio_init(PICO_DEFAULT_LED_PIN);
-    gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
+    // Cant use defaults, need to make other GPIO pin for blinking
 
-    // // Set up our UART
+    // Set up our UART
     // uart_init(UART_ID, BAUD_RATE);
     // // Set the TX and RX pins by using the function select on the GPIO
     // // Set datasheet for more information on function select
     // gpio_set_function(UART_TX_PIN, GPIO_FUNC_UART);
     // gpio_set_function(UART_RX_PIN, GPIO_FUNC_UART);
     
-    // // Send out a string, with CR/LF conversions
+    // // // Send out a string, with CR/LF conversions
     // uart_puts(UART_ID, " Hello, UART!\n");
 
     // Set up our MAX30102 peripheral
@@ -712,7 +711,7 @@ int main()
     int pulseWidth = 411; //Options: 69, 118, 215, 411
     int adcRange = 16384; //Options: 2048, 4096, 8192, 16384
 
-    setup(ledBrightness, sampleAverage, ledMode, sampleRate, pulseWidth, adcRange);
+    //setup(ledBrightness, sampleAverage, ledMode, sampleRate, pulseWidth, adcRange);
    
     while (true) {
       panic_blink();
