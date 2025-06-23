@@ -833,10 +833,6 @@ int main()
     writePacket[1]=0x01;
     ack = i2c_write_blocking(I2C_PORT, MAX30102_ADDRESS, writePacket, 2, false);
     //ack = i2c_write_blocking(I2C_PORT, MAX30102_ADDRESS, &writePacket[1], 1, false);
-     
- 
-    
-    
 
     
     while (true) {
