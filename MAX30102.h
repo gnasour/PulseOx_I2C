@@ -15,6 +15,10 @@
  Library modified to interface with RPi Pico's I2C library
  --George Nassour 4/28/2025
  *****************************************************/
+#pragma once
+
+#ifndef MAX30102_H
+#define MAX30102_H
 
 #include "hardware/i2c.h"
 
@@ -22,12 +26,133 @@
 
 #define I2C_SPEED_STANDARD        100000
 #define I2C_SPEED_FAST            400000
+#define I2C_BUFFER_LENGTH         192        // Max number of reads possible from a full FIFO buffer
 
 #define delay(delay_ms) busy_wait_ms(delay_ms)
 #define millis() time_us_32()
 
+//Useful typedefs between arduino and rpi
 typedef uint8_t byte;
 typedef i2c_inst_t TwoWire;
+
+// Status Registers
+static const uint8_t MAX30102_INTSTAT1 =		0x00;
+static const uint8_t MAX30102_INTSTAT2 =		0x01;
+static const uint8_t MAX30102_INTENABLE1 =		0x02;
+static const uint8_t MAX30102_INTENABLE2 =		0x03;
+
+// FIFO Registers
+static const uint8_t MAX30102_FIFOWRITEPTR = 	0x04;
+static const uint8_t MAX30102_FIFOOVERFLOW = 	0x05;
+static const uint8_t MAX30102_FIFOREADPTR = 	0x06;
+static const uint8_t MAX30102_FIFODATA =		0x07;
+
+// Configuration Registers
+static const uint8_t MAX30102_FIFOCONFIG = 		0x08;
+static const uint8_t MAX30102_MODECONFIG = 		0x09;
+static const uint8_t MAX30102_PARTICLECONFIG = 	0x0A;    // Note, sometimes listed as "SPO2" config in datasheet (pg. 11)
+static const uint8_t MAX30102_LED1_PULSEAMP = 	0x0C;
+static const uint8_t MAX30102_LED2_PULSEAMP = 	0x0D;
+static const uint8_t MAX30102_MULTILEDCONFIG1 = 0x11;
+static const uint8_t MAX30102_MULTILEDCONFIG2 = 0x12;
+
+// Die Temperature Registers
+static const uint8_t MAX30102_DIETEMPINT = 		0x1F;
+static const uint8_t MAX30102_DIETEMPFRAC = 	0x20;
+static const uint8_t MAX30102_DIETEMPCONFIG = 	0x21;
+
+// Part ID Registers
+static const uint8_t MAX30102_REVISIONID = 		0xFE;
+static const uint8_t MAX30102_PARTID = 			0xFF;    // Should always be 0x15. Identical to MAX30102.
+
+// MAX30102 Commands
+// Interrupt configuration (pg 13, 14)
+static const uint8_t MAX30102_INT_A_FULL_MASK =		(byte)0b10000000;
+static const uint8_t MAX30102_INT_A_FULL_ENABLE = 	0x80;
+static const uint8_t MAX30102_INT_A_FULL_DISABLE = 	0x00;
+
+static const uint8_t MAX30102_INT_DATA_RDY_MASK = (byte)0b01000000;
+static const uint8_t MAX30102_INT_DATA_RDY_ENABLE =	0x40;
+static const uint8_t MAX30102_INT_DATA_RDY_DISABLE = 0x00;
+
+static const uint8_t MAX30102_INT_ALC_OVF_MASK = (byte)0b00100000;
+static const uint8_t MAX30102_INT_ALC_OVF_ENABLE = 	0x20;
+static const uint8_t MAX30102_INT_ALC_OVF_DISABLE = 0x00;
+
+static const uint8_t MAX30102_INT_PROX_INT_MASK = (byte)0b00010000;
+static const uint8_t MAX30102_INT_PROX_INT_ENABLE = 0x10;
+static const uint8_t MAX30102_INT_PROX_INT_DISABLE = 0x00;
+
+static const uint8_t MAX30102_INT_DIE_TEMP_RDY_MASK = (byte)0b00000010;
+static const uint8_t MAX30102_INT_DIE_TEMP_RDY_ENABLE = 0x02;
+static const uint8_t MAX30102_INT_DIE_TEMP_RDY_DISABLE = 0x00;
+
+static const uint8_t MAX30102_SAMPLEAVG_MASK =	(byte)0b11100000;
+static const uint8_t MAX30102_SAMPLEAVG_1 = 	0x00;
+static const uint8_t MAX30102_SAMPLEAVG_2 = 	0x20;
+static const uint8_t MAX30102_SAMPLEAVG_4 = 	0x40;
+static const uint8_t MAX30102_SAMPLEAVG_8 = 	0x60;
+static const uint8_t MAX30102_SAMPLEAVG_16 = 	0x80;
+static const uint8_t MAX30102_SAMPLEAVG_32 = 	0xA0;
+
+static const uint8_t MAX30102_ROLLOVER_MASK = 	0xEF;
+static const uint8_t MAX30102_ROLLOVER_ENABLE = 0x10;
+static const uint8_t MAX30102_ROLLOVER_DISABLE = 0x00;
+
+static const uint8_t MAX30102_A_FULL_MASK = 	0xF0;
+
+// Mode configuration commands (page 19)
+static const uint8_t MAX30102_SHUTDOWN_MASK = 	0x7F;
+static const uint8_t MAX30102_SHUTDOWN = 		0x80;
+static const uint8_t MAX30102_WAKEUP = 			0x00;
+
+static const uint8_t MAX30102_RESET_MASK = 		0xBF;
+static const uint8_t MAX30102_RESET = 			0x40;
+
+static const uint8_t MAX30102_MODE_MASK = 		0xF8;
+static const uint8_t MAX30102_MODE_REDONLY = 	0x02;
+static const uint8_t MAX30102_MODE_REDIRONLY = 	0x03;
+static const uint8_t MAX30102_MODE_MULTILED = 	0x07;
+
+// Particle sensing configuration commands (pgs 19-20)
+static const uint8_t MAX30102_ADCRANGE_MASK = 	0x9F;
+static const uint8_t MAX30102_ADCRANGE_2048 = 	0x00;
+static const uint8_t MAX30102_ADCRANGE_4096 = 	0x20;
+static const uint8_t MAX30102_ADCRANGE_8192 = 	0x40;
+static const uint8_t MAX30102_ADCRANGE_16384 = 	0x60;
+
+static const uint8_t MAX30102_SAMPLERATE_MASK = 0xE3;
+static const uint8_t MAX30102_SAMPLERATE_50 = 	0x00;
+static const uint8_t MAX30102_SAMPLERATE_100 = 	0x04;
+static const uint8_t MAX30102_SAMPLERATE_200 = 	0x08;
+static const uint8_t MAX30102_SAMPLERATE_400 = 	0x0C;
+static const uint8_t MAX30102_SAMPLERATE_800 = 	0x10;
+static const uint8_t MAX30102_SAMPLERATE_1000 = 0x14;
+static const uint8_t MAX30102_SAMPLERATE_1600 = 0x18;
+static const uint8_t MAX30102_SAMPLERATE_3200 = 0x1C;
+
+static const uint8_t MAX30102_PULSEWIDTH_MASK = 0xFC;
+static const uint8_t MAX30102_PULSEWIDTH_69 = 	0x00;
+static const uint8_t MAX30102_PULSEWIDTH_118 = 	0x01;
+static const uint8_t MAX30102_PULSEWIDTH_215 = 	0x02;
+static const uint8_t MAX30102_PULSEWIDTH_411 = 	0x03;
+
+//Multi-LED Mode configuration (pg 22)
+//Slots should be enabled in order, so SLOT1 should not be enabled
+//if SLOT2 is
+static const uint8_t MAX30102_SLOT1_MASK = 		0xF8;
+static const uint8_t MAX30102_SLOT2_MASK = 		0x8F;
+static const uint8_t MAX30102_SLOT3_MASK = 		0xF8;
+static const uint8_t MAX30102_SLOT4_MASK = 		0x8F;
+
+static const uint8_t SLOT_NONE = 				0x00;
+static const uint8_t SLOT_RED_LED = 			0x01;
+static const uint8_t SLOT_IR_LED = 				0x02;
+static const uint8_t SLOT_NONE_PILOT = 			0x04;
+static const uint8_t SLOT_RED_PILOT =			0x05;
+static const uint8_t SLOT_IR_PILOT = 			0x06;
+
+static const uint8_t MAX_30102_EXPECTEDPARTID = 0x15;
 
 bool init(TwoWire *wire, uint32_t i2cSpeed, uint8_t i2caddr);
 
@@ -133,3 +258,5 @@ byte tail;
 } sense_struct; //This is our circular buffer of readings from the sensor
 
 sense_struct sense;
+
+#endif

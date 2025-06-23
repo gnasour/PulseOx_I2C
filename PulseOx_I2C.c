@@ -15,130 +15,12 @@
 
 //Pico Defined Headers
 #include <stdio.h>
+#include <string.h>
 #include "pico/stdlib.h"
 #include "hardware/uart.h"
 
 //Driver Headers
 #include "MAX30102.h"
-
-// Status Registers
-static const uint8_t MAX30102_INTSTAT1 =		0x00;
-static const uint8_t MAX30102_INTSTAT2 =		0x01;
-static const uint8_t MAX30102_INTENABLE1 =		0x02;
-static const uint8_t MAX30102_INTENABLE2 =		0x03;
-
-// FIFO Registers
-static const uint8_t MAX30102_FIFOWRITEPTR = 	0x04;
-static const uint8_t MAX30102_FIFOOVERFLOW = 	0x05;
-static const uint8_t MAX30102_FIFOREADPTR = 	0x06;
-static const uint8_t MAX30102_FIFODATA =		0x07;
-
-// Configuration Registers
-static const uint8_t MAX30102_FIFOCONFIG = 		0x08;
-static const uint8_t MAX30102_MODECONFIG = 		0x09;
-static const uint8_t MAX30102_PARTICLECONFIG = 	0x0A;    // Note, sometimes listed as "SPO2" config in datasheet (pg. 11)
-static const uint8_t MAX30102_LED1_PULSEAMP = 	0x0C;
-static const uint8_t MAX30102_LED2_PULSEAMP = 	0x0D;
-static const uint8_t MAX30102_MULTILEDCONFIG1 = 0x11;
-static const uint8_t MAX30102_MULTILEDCONFIG2 = 0x12;
-
-// Die Temperature Registers
-static const uint8_t MAX30102_DIETEMPINT = 		0x1F;
-static const uint8_t MAX30102_DIETEMPFRAC = 	0x20;
-static const uint8_t MAX30102_DIETEMPCONFIG = 	0x21;
-
-// Part ID Registers
-static const uint8_t MAX30102_REVISIONID = 		0xFE;
-static const uint8_t MAX30102_PARTID = 			0xFF;    // Should always be 0x15. Identical to MAX30102.
-
-// MAX30102 Commands
-// Interrupt configuration (pg 13, 14)
-static const uint8_t MAX30102_INT_A_FULL_MASK =		(byte)~0b10000000;
-static const uint8_t MAX30102_INT_A_FULL_ENABLE = 	0x80;
-static const uint8_t MAX30102_INT_A_FULL_DISABLE = 	0x00;
-
-static const uint8_t MAX30102_INT_DATA_RDY_MASK = (byte)~0b01000000;
-static const uint8_t MAX30102_INT_DATA_RDY_ENABLE =	0x40;
-static const uint8_t MAX30102_INT_DATA_RDY_DISABLE = 0x00;
-
-static const uint8_t MAX30102_INT_ALC_OVF_MASK = (byte)~0b00100000;
-static const uint8_t MAX30102_INT_ALC_OVF_ENABLE = 	0x20;
-static const uint8_t MAX30102_INT_ALC_OVF_DISABLE = 0x00;
-
-static const uint8_t MAX30102_INT_PROX_INT_MASK = (byte)~0b00010000;
-static const uint8_t MAX30102_INT_PROX_INT_ENABLE = 0x10;
-static const uint8_t MAX30102_INT_PROX_INT_DISABLE = 0x00;
-
-static const uint8_t MAX30102_INT_DIE_TEMP_RDY_MASK = (byte)~0b00000010;
-static const uint8_t MAX30102_INT_DIE_TEMP_RDY_ENABLE = 0x02;
-static const uint8_t MAX30102_INT_DIE_TEMP_RDY_DISABLE = 0x00;
-
-static const uint8_t MAX30102_SAMPLEAVG_MASK =	(byte)~0b11100000;
-static const uint8_t MAX30102_SAMPLEAVG_1 = 	0x00;
-static const uint8_t MAX30102_SAMPLEAVG_2 = 	0x20;
-static const uint8_t MAX30102_SAMPLEAVG_4 = 	0x40;
-static const uint8_t MAX30102_SAMPLEAVG_8 = 	0x60;
-static const uint8_t MAX30102_SAMPLEAVG_16 = 	0x80;
-static const uint8_t MAX30102_SAMPLEAVG_32 = 	0xA0;
-
-static const uint8_t MAX30102_ROLLOVER_MASK = 	0xEF;
-static const uint8_t MAX30102_ROLLOVER_ENABLE = 0x10;
-static const uint8_t MAX30102_ROLLOVER_DISABLE = 0x00;
-
-static const uint8_t MAX30102_A_FULL_MASK = 	0xF0;
-
-// Mode configuration commands (page 19)
-static const uint8_t MAX30102_SHUTDOWN_MASK = 	0x7F;
-static const uint8_t MAX30102_SHUTDOWN = 		0x80;
-static const uint8_t MAX30102_WAKEUP = 			0x00;
-
-static const uint8_t MAX30102_RESET_MASK = 		0xBF;
-static const uint8_t MAX30102_RESET = 			0x40;
-
-static const uint8_t MAX30102_MODE_MASK = 		0xF8;
-static const uint8_t MAX30102_MODE_REDONLY = 	0x02;
-static const uint8_t MAX30102_MODE_REDIRONLY = 	0x03;
-static const uint8_t MAX30102_MODE_MULTILED = 	0x07;
-
-// Particle sensing configuration commands (pgs 19-20)
-static const uint8_t MAX30102_ADCRANGE_MASK = 	0x9F;
-static const uint8_t MAX30102_ADCRANGE_2048 = 	0x00;
-static const uint8_t MAX30102_ADCRANGE_4096 = 	0x20;
-static const uint8_t MAX30102_ADCRANGE_8192 = 	0x40;
-static const uint8_t MAX30102_ADCRANGE_16384 = 	0x60;
-
-static const uint8_t MAX30102_SAMPLERATE_MASK = 0xE3;
-static const uint8_t MAX30102_SAMPLERATE_50 = 	0x00;
-static const uint8_t MAX30102_SAMPLERATE_100 = 	0x04;
-static const uint8_t MAX30102_SAMPLERATE_200 = 	0x08;
-static const uint8_t MAX30102_SAMPLERATE_400 = 	0x0C;
-static const uint8_t MAX30102_SAMPLERATE_800 = 	0x10;
-static const uint8_t MAX30102_SAMPLERATE_1000 = 0x14;
-static const uint8_t MAX30102_SAMPLERATE_1600 = 0x18;
-static const uint8_t MAX30102_SAMPLERATE_3200 = 0x1C;
-
-static const uint8_t MAX30102_PULSEWIDTH_MASK = 0xFC;
-static const uint8_t MAX30102_PULSEWIDTH_69 = 	0x00;
-static const uint8_t MAX30102_PULSEWIDTH_118 = 	0x01;
-static const uint8_t MAX30102_PULSEWIDTH_215 = 	0x02;
-static const uint8_t MAX30102_PULSEWIDTH_411 = 	0x03;
-
-//Multi-LED Mode configuration (pg 22)
-//Slots should be enabled in order, so SLOT1 should not be enabled
-//if SLOT2 is
-static const uint8_t MAX30102_SLOT1_MASK = 		0xF8;
-static const uint8_t MAX30102_SLOT2_MASK = 		0x8F;
-static const uint8_t MAX30102_SLOT3_MASK = 		0xF8;
-static const uint8_t MAX30102_SLOT4_MASK = 		0x8F;
-
-static const uint8_t SLOT_NONE = 				0x00;
-static const uint8_t SLOT_RED_LED = 			0x01;
-static const uint8_t SLOT_IR_LED = 				0x02;
-static const uint8_t SLOT_NONE_PILOT = 			0x04;
-static const uint8_t SLOT_RED_PILOT =			0x05;
-static const uint8_t SLOT_IR_PILOT = 			0x06;
-
-static const uint8_t MAX_30102_EXPECTEDPARTID = 0x15;
 
 // I2C defines
 #define I2C_PORT i2c0
@@ -149,23 +31,22 @@ static const uint8_t MAX_30102_EXPECTEDPARTID = 0x15;
 #define UART_ID uart0
 #define BAUD_RATE 115200
 
-// Use pins 4 and 5 for UART1
-// Pins can be changed, see the GPIO function select table in the datasheet for information on GPIO assignments
+
 #define UART_TX_PIN 0
 #define UART_RX_PIN 1
 
-const uint8_t I2C_BUFFER_LENGTH = 192;
-uint8_t readByte;  // Single Reads from MAX30102
-uint8_t readByteStream[I2C_BUFFER_LENGTH]; // Max number of reads possible from a full FIFO buffer
-uint8_t writePacket[2]; // Write transaction: writePacket[0]=reg addr, writePacket[1]=val 
+
+uint8_t readByte;  
+uint8_t readByteStream[I2C_BUFFER_LENGTH];
+uint8_t writePacket[2]; // writePacket[0] = device reg addr, writePacket[1] = val 
 
 
 void panic_blink(){
     while(true){
-    gpio_put(PICO_DEFAULT_LED_PIN, true);
-    sleep_ms(200);
-    gpio_put(PICO_DEFAULT_LED_PIN, false);
-    sleep_ms(200);
+      gpio_put(PICO_DEFAULT_LED_PIN, true);
+      sleep_ms(200);
+      gpio_put(PICO_DEFAULT_LED_PIN, false);
+      sleep_ms(200);
     }
 }
 
@@ -216,14 +97,16 @@ void softReset(void) {
     }
 }
 
-void shutDown(void) {
+void shutDown(void)
+{
     // Put IC into low power mode (datasheet pg. 19)
     // During shutdown the IC will continue to respond to I2C commands but will
     // not update with or take new readings (such as temperature)
     bitMask(MAX30102_MODECONFIG, MAX30102_SHUTDOWN_MASK, MAX30102_SHUTDOWN);
 }
 
-void wakeUp(void) {
+void wakeUp(void) 
+{
     // Pull IC out of low power mode (datasheet pg. 19)
     bitMask(MAX30102_MODECONFIG, MAX30102_SHUTDOWN_MASK, MAX30102_WAKEUP);
 }
@@ -233,51 +116,50 @@ void wakeUp(void) {
 //
 
 //
-// Configuration
+// Interrupt Configuration
 //
 
-//Begin Interrupt configuration
 uint8_t getINT1(void) {
     return (readRegister8(_i2caddr, MAX30102_INTSTAT1));
-  }
-  uint8_t getINT2(void) {
-    return (readRegister8(_i2caddr, MAX30102_INTSTAT2));
-  }
-  
-  void enableAFULL(void) {
-    bitMask(MAX30102_INTENABLE1, MAX30102_INT_A_FULL_MASK, MAX30102_INT_A_FULL_ENABLE);
-  }
-  void disableAFULL(void) {
-    bitMask(MAX30102_INTENABLE1, MAX30102_INT_A_FULL_MASK, MAX30102_INT_A_FULL_DISABLE);
-  }
-  
-  void enableDATARDY(void) {
-    bitMask(MAX30102_INTENABLE1, MAX30102_INT_DATA_RDY_MASK, MAX30102_INT_DATA_RDY_ENABLE);
-  }
-  void disableDATARDY(void) {
-    bitMask(MAX30102_INTENABLE1, MAX30102_INT_DATA_RDY_MASK, MAX30102_INT_DATA_RDY_DISABLE);
-  }
-  
-  void enableALCOVF(void) {
-    bitMask(MAX30102_INTENABLE1, MAX30102_INT_ALC_OVF_MASK, MAX30102_INT_ALC_OVF_ENABLE);
-  }
-  void disableALCOVF(void) {
-    bitMask(MAX30102_INTENABLE1, MAX30102_INT_ALC_OVF_MASK, MAX30102_INT_ALC_OVF_DISABLE);
-  }
-  
-  void enablePROXINT(void) {
-    bitMask(MAX30102_INTENABLE1, MAX30102_INT_PROX_INT_MASK, MAX30102_INT_PROX_INT_ENABLE);
-  }
-  void disablePROXINT(void) {
-    bitMask(MAX30102_INTENABLE1, MAX30102_INT_PROX_INT_MASK, MAX30102_INT_PROX_INT_DISABLE);
-  }
-  
-  void enableDIETEMPRDY(void) {
-    bitMask(MAX30102_INTENABLE2, MAX30102_INT_DIE_TEMP_RDY_MASK, MAX30102_INT_DIE_TEMP_RDY_ENABLE);
-  }
-  void disableDIETEMPRDY(void) {
-    bitMask(MAX30102_INTENABLE2, MAX30102_INT_DIE_TEMP_RDY_MASK, MAX30102_INT_DIE_TEMP_RDY_DISABLE);
-  }
+}
+uint8_t getINT2(void) {
+  return (readRegister8(_i2caddr, MAX30102_INTSTAT2));
+}
+
+void enableAFULL(void) {
+  bitMask(MAX30102_INTENABLE1, MAX30102_INT_A_FULL_MASK, MAX30102_INT_A_FULL_ENABLE);
+}
+void disableAFULL(void) {
+  bitMask(MAX30102_INTENABLE1, MAX30102_INT_A_FULL_MASK, MAX30102_INT_A_FULL_DISABLE);
+}
+
+void enableDATARDY(void) {
+  bitMask(MAX30102_INTENABLE1, MAX30102_INT_DATA_RDY_MASK, MAX30102_INT_DATA_RDY_ENABLE);
+}
+void disableDATARDY(void) {
+  bitMask(MAX30102_INTENABLE1, MAX30102_INT_DATA_RDY_MASK, MAX30102_INT_DATA_RDY_DISABLE);
+}
+
+void enableALCOVF(void) {
+  bitMask(MAX30102_INTENABLE1, MAX30102_INT_ALC_OVF_MASK, MAX30102_INT_ALC_OVF_ENABLE);
+}
+void disableALCOVF(void) {
+  bitMask(MAX30102_INTENABLE1, MAX30102_INT_ALC_OVF_MASK, MAX30102_INT_ALC_OVF_DISABLE);
+}
+
+void enablePROXINT(void) {
+  bitMask(MAX30102_INTENABLE1, MAX30102_INT_PROX_INT_MASK, MAX30102_INT_PROX_INT_ENABLE);
+}
+void disablePROXINT(void) {
+  bitMask(MAX30102_INTENABLE1, MAX30102_INT_PROX_INT_MASK, MAX30102_INT_PROX_INT_DISABLE);
+}
+
+void enableDIETEMPRDY(void) {
+  bitMask(MAX30102_INTENABLE2, MAX30102_INT_DIE_TEMP_RDY_MASK, MAX30102_INT_DIE_TEMP_RDY_ENABLE);
+}
+void disableDIETEMPRDY(void) {
+  bitMask(MAX30102_INTENABLE2, MAX30102_INT_DIE_TEMP_RDY_MASK, MAX30102_INT_DIE_TEMP_RDY_DISABLE);
+}
 
 //
 // End Interrupt configuration
@@ -287,18 +169,21 @@ uint8_t getINT1(void) {
 // Mode Configuration
 //
 
-void setLEDMode(uint8_t mode) {
+void setLEDMode(uint8_t mode) 
+{
   // Set which LEDs are used for sampling -- Red only, RED+IR only, or custom.
   // See datasheet, page 19
   bitMask(MAX30102_MODECONFIG, MAX30102_MODE_MASK, mode);
 }
 
-void setADCRange(uint8_t adcRange) {
+void setADCRange(uint8_t adcRange) 
+{
   // adcRange: one of MAX30102_ADCRANGE_2048, _4096, _8192, _16384
   bitMask(MAX30102_PARTICLECONFIG, MAX30102_ADCRANGE_MASK, adcRange);
 }
 
-void setSampleRate(uint8_t sampleRate) {
+void setSampleRate(uint8_t sampleRate) 
+{
   // sampleRate: one of MAX30102_SAMPLERATE_50, _100, _200, _400, _800, _1000, _1600, _3200
   bitMask(MAX30102_PARTICLECONFIG, MAX30102_SAMPLERATE_MASK, sampleRate);
 }
@@ -479,6 +364,7 @@ void setup(byte powerLevel, byte sampleAverage, byte ledMode, int sampleRate, in
   if (ledMode == 3) setLEDMode(MAX30102_MODE_MULTILED); //Watch all three LED channels
   else if (ledMode == 2) setLEDMode(MAX30102_MODE_REDIRONLY); //Red and IR
   else setLEDMode(MAX30102_MODE_REDONLY); //Red only
+  if(ledMode > 2) ledMode = 2;
   activeLEDs = ledMode; //Used to control how many bytes to read from FIFO buffer
   //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
@@ -520,8 +406,6 @@ void setup(byte powerLevel, byte sampleAverage, byte ledMode, int sampleRate, in
 
   setPulseAmplitudeRed(powerLevel);
   setPulseAmplitudeIR(powerLevel);
-  setPulseAmplitudeGreen(powerLevel);
-  setPulseAmplitudeProximity(powerLevel);
   //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
   //Multi-LED Mode Configuration, Enable the reading of the three LEDs
@@ -543,6 +427,7 @@ void setup(byte powerLevel, byte sampleAverage, byte ledMode, int sampleRate, in
 //Tell caller how many samples are available
 uint8_t available(void)
 {
+
   int8_t numberOfSamples = sense.head - sense.tail;
   if (numberOfSamples < 0) numberOfSamples += STORAGE_SIZE;
 
@@ -636,10 +521,9 @@ uint16_t check(void)
     // _i2cPort->beginTransmission(MAX30102_ADDRESS);
     // _i2cPort->write(MAX30102_FIFODATA);
     // _i2cPort->endTransmission();
-    i2c_write_blocking(_i2cPort, _i2caddr, &MAX30102_FIFODATA, 1, false);
+    i2c_write_blocking(_i2cPort, _i2caddr, &MAX30102_FIFODATA, 1, true);
 
-    //We may need to read as many as 288 bytes so we read in blocks no larger than I2C_BUFFER_LENGTH
-    //I2C_BUFFER_LENGTH changes based on the platform. 64 bytes for SAMD21, 32 bytes for Uno.
+    //We may need to read as many as 192 bytes so we read in blocks no larger than I2C_BUFFER_LENGTH
     //Wire.requestFrom() is limited to BUFFER_LENGTH which is 32 on the Uno
     while (bytesLeftToRead > 0)
     {
@@ -656,7 +540,7 @@ uint16_t check(void)
       bytesLeftToRead -= toGet;
 
       //Request toGet number of bytes from sensor
-      i2c_read_burst_blocking(_i2cPort, _i2caddr, readByteStream, );
+      i2c_read_burst_blocking(_i2cPort, _i2caddr, readByteStream, toGet);
       
       while (toGet > 0)
       {
@@ -668,48 +552,48 @@ uint16_t check(void)
 
         //Burst read three bytes - RED
         temp[3] = 0;
-        temp[2] = _i2cPort->read();
-        temp[1] = _i2cPort->read();
-        temp[0] = _i2cPort->read();
+        temp[2] = readByteStream[0];
+        temp[1] = readByteStream[1];
+        temp[0] = readByteStream[2];
 
         //Convert array to long
         memcpy(&tempLong, temp, sizeof(tempLong));
-		
-		tempLong &= 0x3FFFF; //Zero out all but 18 bits
-
+	      tempLong &= 0x3FFFF; //Zero out all but 18 bits
         sense.red[sense.head] = tempLong; //Store this reading into the sense array
 
         if (activeLEDs > 1)
         {
           //Burst read three more bytes - IR
           temp[3] = 0;
-          temp[2] = _i2cPort->read();
-          temp[1] = _i2cPort->read();
-          temp[0] = _i2cPort->read();
+          temp[2] = readByteStream[3];
+          temp[1] = readByteStream[4];
+          temp[0] = readByteStream[5];
 
           //Convert array to long
           memcpy(&tempLong, temp, sizeof(tempLong));
-
-		  tempLong &= 0x3FFFF; //Zero out all but 18 bits
-          
-		  sense.IR[sense.head] = tempLong;
+          tempLong &= 0x3FFFF; //Zero out all but 18 bits
+          sense.IR[sense.head] = tempLong;
         }
 
-        if (activeLEDs > 2)
-        {
-          //Burst read three more bytes - Green
-          temp[3] = 0;
-          temp[2] = _i2cPort->read();
-          temp[1] = _i2cPort->read();
-          temp[0] = _i2cPort->read();
+      // *****Currently unused for MAX30102*****
 
-          //Convert array to long
-          memcpy(&tempLong, temp, sizeof(tempLong));
+      //   if (activeLEDs > 2)
+      //   {
+      //     //Burst read three more bytes - Green
+      //     temp[3] = 0;
+      //     temp[2] = _i2cPort->read();
+      //     temp[1] = _i2cPort->read();
+      //     temp[0] = _i2cPort->read();
 
-		  tempLong &= 0x3FFFF; //Zero out all but 18 bits
+      //     //Convert array to long
+      //     memcpy(&tempLong, temp, sizeof(tempLong));
 
-          sense.green[sense.head] = tempLong;
-        }
+		  // tempLong &= 0x3FFFF; //Zero out all but 18 bits
+
+      //     sense.green[sense.head] = tempLong;
+      //   }
+      
+      // ***************************************
 
         toGet -= activeLEDs * 3;
       }
@@ -779,12 +663,17 @@ void writeRegister8(uint8_t address, uint8_t reg, uint8_t value) {
 // End Low-level I2C Communication
 //
 
-uint8_t available(void) {
-  int8_t numberOfSamples = sense.head - sense.tail;
-  if (numberOfSamples < 0) numberOfSamples += STORAGE_SIZE;
+#define MAX_BRIGHTNESS 255
 
-  return (numberOfSamples);
-}
+uint32_t irBuffer[100]; //infrared LED sensor data
+uint32_t redBuffer[100];  //red LED sensor data
+int32_t bufferLength; //data length
+int32_t spo2; //SPO2 value
+int8_t validSPO2; //indicator to show if the SPO2 calculation is valid
+int32_t heartRate; //heart rate value
+int8_t validHeartRate; //indicator to show if the heart rate calculation is valid
+byte pulseLED = 11; //Must be on PWM pin
+byte readLED = 13; //Blinks with each data read
 
 int main()
 {
@@ -794,7 +683,7 @@ int main()
 
     stdio_init_all();
 
-    init(I2C_PORT, I2C_SPEED_STANDARD, MAX30102_ADDRESS);
+    init(I2C_PORT, I2C_SPEED_FAST, MAX30102_ADDRESS);
     
     gpio_set_function(I2C_SDA, GPIO_FUNC_I2C);
     gpio_set_function(I2C_SCL, GPIO_FUNC_I2C);
@@ -802,32 +691,27 @@ int main()
     gpio_pull_up(I2C_SCL);
 
     // Test LED initialization
-    gpio_init(PICO_DEFAULT_LED_PIN);
-    gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
+    // Cant use defaults, need to make other GPIO pin for blinking
 
-    // // Set up our UART
+    // Set up our UART
     // uart_init(UART_ID, BAUD_RATE);
     // // Set the TX and RX pins by using the function select on the GPIO
     // // Set datasheet for more information on function select
     // gpio_set_function(UART_TX_PIN, GPIO_FUNC_UART);
     // gpio_set_function(UART_RX_PIN, GPIO_FUNC_UART);
     
-    // // Send out a string, with CR/LF conversions
+    // // // Send out a string, with CR/LF conversions
     // uart_puts(UART_ID, " Hello, UART!\n");
 
-    // Transmit initial configuration to MAX unit
-    // Test to see if i2c wrote to slave
-    writePacket[0]=0x09;
-    writePacket[1]=0x02;
-    ack = i2c_write_blocking(I2C_PORT, MAX30102_ADDRESS, writePacket, 2, false);
-    //ack = i2c_write_blocking(I2C_PORT, MAX30102_ADDRESS, &writePacket[1], 1, false);
-    
-    //Set LED amplitude
-    writePacket[0]=0x0C;
-    writePacket[1]=0xF0;
-    ack = i2c_write_blocking(I2C_PORT, MAX30102_ADDRESS, writePacket, 2, false);
-    //ack = i2c_write_blocking(I2C_PORT, MAX30102_ADDRESS, &writePacket[1], 1, false);
+    // Set up our MAX30102 peripheral
+    byte ledBrightness = 255; //Options: 0=Off to 255=50mA
+    byte sampleAverage = 4; //Options: 1, 2, 4, 8, 16, 32
+    byte ledMode = 2; //Options: 1 = Red only, 2 = Red + IR, 3 = Red + IR + Green
+    byte sampleRate = 100; //Options: 50, 100, 200, 400, 800, 1000, 1600, 3200
+    int pulseWidth = 411; //Options: 69, 118, 215, 411
+    int adcRange = 16384; //Options: 2048, 4096, 8192, 16384
 
+<<<<<<< HEAD
     //enable LED1(red) for SLOT1 in MULTI-LED ctrl reg
     writePacket[0]=0x11;
     writePacket[1]=0x01;
@@ -835,11 +719,12 @@ int main()
     //ack = i2c_write_blocking(I2C_PORT, MAX30102_ADDRESS, &writePacket[1], 1, false);
 
     
+=======
+    //setup(ledBrightness, sampleAverage, ledMode, sampleRate, pulseWidth, adcRange);
+   
+>>>>>>> 960c2de6e49e7d7ebd4819478385149fc0c66fd0
     while (true) {
-    
-       
-        
-    
+      panic_blink();
         
     }
 }
