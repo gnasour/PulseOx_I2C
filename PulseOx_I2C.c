@@ -726,8 +726,7 @@ int main()
     int adcRange = 16384; //Options: 2048, 4096, 8192, 16384
 
     setup(ledBrightness, sampleAverage, ledMode, sampleRate, pulseWidth, adcRange);
-   
->>>>>>> 960c2de6e49e7d7ebd4819478385149fc0c66fd0
+    
     while (true) {
       
       // for(byte i = 0; i < bufferLength; i++){
