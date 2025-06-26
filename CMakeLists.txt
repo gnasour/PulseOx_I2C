@@ -40,13 +40,15 @@ add_executable(PulseOx_I2C PulseOx_I2C.c )
 pico_set_program_name(PulseOx_I2C "PulseOx_I2C")
 pico_set_program_version(PulseOx_I2C "0.1")
 
-# Modify the below lines to enable/disable output over UART/USB
-pico_enable_stdio_uart(PulseOx_I2C 0)
-pico_enable_stdio_usb(PulseOx_I2C 0)
-
 # Add the standard library to the build
 target_link_libraries(PulseOx_I2C
         pico_stdlib)
+        
+# Modify the below lines to enable/disable output over UART/USB
+pico_enable_stdio_uart(PulseOx_I2C 0)
+pico_enable_stdio_usb(PulseOx_I2C 1)
+
+
 
 # Add the standard include files to the build
 target_include_directories(PulseOx_I2C PRIVATE

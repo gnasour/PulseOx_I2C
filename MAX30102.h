@@ -152,7 +152,7 @@ static const uint8_t SLOT_NONE_PILOT = 			0x04;
 static const uint8_t SLOT_RED_PILOT =			0x05;
 static const uint8_t SLOT_IR_PILOT = 			0x06;
 
-static const uint8_t MAX_30102_EXPECTEDPARTID = 0x15;
+static const uint8_t MAX_30102_EXPECTEDPARTID = 0x15U;
 
 bool init(TwoWire *wire, uint32_t i2cSpeed, uint8_t i2caddr);
 

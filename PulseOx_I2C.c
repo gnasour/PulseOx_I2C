@@ -54,20 +54,18 @@ void panic_blink(){
 //Initialization
 //
 
-bool init(TwoWire *wirePort, uint32_t i2cSpeed, uint8_t i2caddr) {
+bool max30102_init(TwoWire *wirePort, uint32_t i2cSpeed, uint8_t i2caddr) {
 
     _i2cPort = wirePort; //Grab which port the user wants us to use
-
-    // I2C Initialisation. Using it at 100Khz.
-    i2c_init(_i2cPort, i2cSpeed);
 
     _i2caddr = i2caddr;
 
     // Step 1: Initial Communication and Verification
     // Check that a MAX30102 is connected
-    if (readPartID() != MAX_30102_EXPECTEDPARTID) {
+    if (readPartID() != 0x15) {
         // Error -- Part ID read from MAX30102 does not match expected part ID.
         // This may mean there is a physical connectivity problem (broken wire, unpowered, etc).
+        gpio_put(PICO_DEFAULT_LED_PIN, true);
         return false;
     }
 
@@ -84,6 +82,7 @@ bool init(TwoWire *wirePort, uint32_t i2cSpeed, uint8_t i2caddr) {
 //
 
 void softReset(void) {
+  
     bitMask(MAX30102_MODECONFIG, MAX30102_RESET_MASK, MAX30102_RESET);
   
     // Poll for bit to clear, reset is then complete
@@ -342,6 +341,7 @@ float readTemperatureF() {
 // Sample rate = 50
 //Use the default setup if you are just getting started with the MAX30102 sensor
 void setup(byte powerLevel, byte sampleAverage, byte ledMode, int sampleRate, int pulseWidth, int adcRange) {
+  
   softReset(); //Reset all configuration, threshold, and data registers to POR values
 
   //FIFO Configuration
@@ -628,6 +628,7 @@ bool safeCheck(uint8_t maxTimeToCheck)
 // Device ID and Revision
 //
 uint8_t readPartID() {
+  
     return readRegister8(_i2caddr, MAX30102_PARTID);
 }
 
@@ -650,13 +651,22 @@ void bitMask(uint8_t reg, uint8_t mask, uint8_t thing)
 
 uint8_t readRegister8(uint8_t address, uint8_t reg) {
     i2c_write_blocking(_i2cPort, _i2caddr, &reg, 1, true);
-    return (uint8_t) i2c_read_blocking(_i2cPort, _i2caddr, &readByte, 1, false);
+    i2c_read_blocking(_i2cPort, _i2caddr, &readByte, 1, false);
+    return readByte;
 }
 
 void writeRegister8(uint8_t address, uint8_t reg, uint8_t value) {
     writePacket[0]=reg;
     writePacket[1]=value;
     i2c_write_blocking(_i2cPort, _i2caddr, writePacket, 2, false);
+}
+
+void readLoop(uint8_t address, uint8_t reg){
+  i2c_write_blocking(_i2cPort, _i2caddr, &reg, 1, true);
+  while(true){
+    i2c_read_blocking(_i2cPort, _i2caddr, &readByte, 1, true);
+    printf("%d\n", readByte);
+  }
 }
 
 //
@@ -667,7 +677,7 @@ void writeRegister8(uint8_t address, uint8_t reg, uint8_t value) {
 
 uint32_t irBuffer[100]; //infrared LED sensor data
 uint32_t redBuffer[100];  //red LED sensor data
-int32_t bufferLength; //data length
+int32_t bufferLength = 100; //data length
 int32_t spo2; //SPO2 value
 int8_t validSPO2; //indicator to show if the SPO2 calculation is valid
 int32_t heartRate; //heart rate value
@@ -681,40 +691,64 @@ int main()
     
     size_t nBytes;
 
+    //Debug functions init (USB serial & onboard LED)
     stdio_init_all();
-
-    init(I2C_PORT, I2C_SPEED_FAST, MAX30102_ADDRESS);
+    gpio_init(PICO_DEFAULT_LED_PIN);
+    gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
     
+
+    // // Set up our UART
+    uart_init(UART_ID, BAUD_RATE);
+    // Set the TX and RX pins by using the function select on the GPIO
+    // Set datasheet for more information on function select
+    gpio_set_function(UART_TX_PIN, GPIO_FUNC_UART);
+    gpio_set_function(UART_RX_PIN, GPIO_FUNC_UART);
+    
+
+    //I2C Init
+    i2c_init(I2C_PORT, 100*1000);
     gpio_set_function(I2C_SDA, GPIO_FUNC_I2C);
     gpio_set_function(I2C_SCL, GPIO_FUNC_I2C);
     gpio_pull_up(I2C_SDA);
     gpio_pull_up(I2C_SCL);
-
-    // Test LED initialization
-    // Cant use defaults, need to make other GPIO pin for blinking
-
-    // Set up our UART
-    // uart_init(UART_ID, BAUD_RATE);
-    // // Set the TX and RX pins by using the function select on the GPIO
-    // // Set datasheet for more information on function select
-    // gpio_set_function(UART_TX_PIN, GPIO_FUNC_UART);
-    // gpio_set_function(UART_RX_PIN, GPIO_FUNC_UART);
     
-    // // // Send out a string, with CR/LF conversions
-    // uart_puts(UART_ID, " Hello, UART!\n");
+    // Pulse ox init
+    max30102_init(I2C_PORT, I2C_SPEED_FAST, MAX30102_ADDRESS);
 
-    // Set up our MAX30102 peripheral
-    byte ledBrightness = 255; //Options: 0=Off to 255=50mA
+    
+
+    // Pulse Ox setup initial values
+    byte ledBrightness = 80; //Options: 0=Off to 255=50mA
     byte sampleAverage = 4; //Options: 1, 2, 4, 8, 16, 32
     byte ledMode = 2; //Options: 1 = Red only, 2 = Red + IR, 3 = Red + IR + Green
     byte sampleRate = 100; //Options: 50, 100, 200, 400, 800, 1000, 1600, 3200
     int pulseWidth = 411; //Options: 69, 118, 215, 411
     int adcRange = 16384; //Options: 2048, 4096, 8192, 16384
 
-    //setup(ledBrightness, sampleAverage, ledMode, sampleRate, pulseWidth, adcRange);
+    setup(ledBrightness, sampleAverage, ledMode, sampleRate, pulseWidth, adcRange);
    
     while (true) {
-      panic_blink();
+      
+      // for(byte i = 0; i < bufferLength; i++){
+
+      //   while(available() == false)
+      //     check();
+        
+
+      //   redBuffer[i] = getRed();
+      //   irBuffer[i] = getIR();
+      //   nextSample();
+
+      //   printf("red=%d", redBuffer[i]);
+      //   printf(", ");
+      //   printf("ir=%d", irBuffer[i]);
+      //   printf("\n");
+
+
+      // }
+
+      readLoop(MAX30102_ADDRESS, MAX30102_FIFODATA);
+      
         
     }
 }
