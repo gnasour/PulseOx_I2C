@@ -65,7 +65,8 @@ bool max30102_init(TwoWire *wirePort, uint32_t i2cSpeed, uint8_t i2caddr) {
     if (readPartID() != 0x15) {
         // Error -- Part ID read from MAX30102 does not match expected part ID.
         // This may mean there is a physical connectivity problem (broken wire, unpowered, etc).
-        gpio_put(PICO_DEFAULT_LED_PIN, true);
+        printf("MAX30102 part ID verification failed. Check the connection of the devices and power state...");
+        panic_blink();
         return false;
     }
 
@@ -409,6 +410,7 @@ void setup(byte powerLevel, byte sampleAverage, byte ledMode, int sampleRate, in
   //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
   //Multi-LED Mode Configuration, Enable the reading of the three LEDs
+  //Since MAX30102 has no green LED, only the IR and red LED enable options have been defined
   //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
   enableSlot(1, SLOT_RED_LED);
   if (ledMode > 1) enableSlot(2, SLOT_IR_LED);
@@ -454,15 +456,6 @@ uint32_t getIR(void)
     return(0); //Sensor failed to find new data
 }
 
-//Report the most recent Green value
-uint32_t getGreen(void)
-{
-  //Check the sensor for new data for 250ms
-  if(safeCheck(250))
-    return (sense.green[sense.head]);
-  else
-    return(0); //Sensor failed to find new data
-}
 
 //Report the next Red value in the FIFO
 uint32_t getFIFORed(void)
@@ -474,12 +467,6 @@ uint32_t getFIFORed(void)
 uint32_t getFIFOIR(void)
 {
   return (sense.IR[sense.tail]);
-}
-
-//Report the next Green value in the FIFO
-uint32_t getFIFOGreen(void)
-{
-  return (sense.green[sense.tail]);
 }
 
 //Advance the tail
@@ -546,6 +533,7 @@ uint16_t check(void)
       {
         sense.head++; //Advance the head of the storage struct
         sense.head %= STORAGE_SIZE; //Wrap condition
+        
 
         byte temp[sizeof(uint32_t)]; //Array of 4 bytes that we will convert into long
         uint32_t tempLong;
@@ -560,6 +548,7 @@ uint16_t check(void)
         memcpy(&tempLong, temp, sizeof(tempLong));
 	      tempLong &= 0x3FFFF; //Zero out all but 18 bits
         sense.red[sense.head] = tempLong; //Store this reading into the sense array
+        
 
         if (activeLEDs > 1)
         {
@@ -729,25 +718,38 @@ int main()
     
     while (true) {
       
-      // for(byte i = 0; i < bufferLength; i++){
-
-      //   while(available() == false)
-      //     check();
-        
-
-      //   redBuffer[i] = getRed();
-      //   irBuffer[i] = getIR();
-      //   nextSample();
-
-      //   printf("red=%d", redBuffer[i]);
-      //   printf(", ");
-      //   printf("ir=%d", irBuffer[i]);
-      //   printf("\n");
+      
 
 
-      // }
+      for (byte i = 25; i < 100; i++)
+    {
+      redBuffer[i - 25] = redBuffer[i];
+      irBuffer[i - 25] = irBuffer[i];
+    }
 
-      readLoop(MAX30102_ADDRESS, MAX30102_FIFODATA);
+    //take 25 sets of samples before calculating the heart rate.
+    for (byte i = 75; i < 100; i++)
+    {
+      while (available() == false) //do we have new data?
+        check(); //Check the sensor for new data
+
+     
+      redBuffer[i] = getRed();
+      irBuffer[i] = getIR();
+      nextSample(); //We're finished with this sample so move to next sample
+
+      //send samples and calculation result to terminal program through UART
+      // printf(("red="));
+      // printf("%d\n", redBuffer[i]);
+      // printf((", ir="));
+      // printf("%d\n", irBuffer[i]);
+
+      
+
+      
+    }
+
+      
       
         
     }

@@ -26,7 +26,8 @@
 
 #define I2C_SPEED_STANDARD        100000
 #define I2C_SPEED_FAST            400000
-#define I2C_BUFFER_LENGTH         192        // Max number of reads possible from a full FIFO buffer
+#define I2C_BUFFER_LENGTH         6       // 2*3bytes per LED channel (IR+RED)
+                                          // Depending on the ADC config, 15-18 bits are recorded, which requires 3 bytes per reading
 
 #define delay(delay_ms) busy_wait_ms(delay_ms)
 #define millis() time_us_32()
