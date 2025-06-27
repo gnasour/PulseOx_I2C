@@ -7,7 +7,7 @@
 
 // Host ip and port
 const uint16_t port = 1025;
-const char *host = "192.168.1.199";
+const char *host = "";
 WiFiClient client;
   
 void setup()
@@ -16,7 +16,7 @@ void setup()
   Serial.begin(HI_BAUD);
 
   WiFi.mode(WIFI_STA);
-  WiFi.begin("Nasour", "Hn4281992@#");
+  WiFi.begin(SSID, PASSWORD);
   pinMode(BLUE_LED, OUTPUT);
   
   while(WiFi.status() != WL_CONNECTED)
