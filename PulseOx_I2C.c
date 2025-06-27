@@ -564,26 +564,6 @@ uint16_t check(void)
           sense.IR[sense.head] = tempLong;
         }
 
-      // *****Currently unused for MAX30102*****
-
-      //   if (activeLEDs > 2)
-      //   {
-      //     //Burst read three more bytes - Green
-      //     temp[3] = 0;
-      //     temp[2] = _i2cPort->read();
-      //     temp[1] = _i2cPort->read();
-      //     temp[0] = _i2cPort->read();
-
-      //     //Convert array to long
-      //     memcpy(&tempLong, temp, sizeof(tempLong));
-
-		  // tempLong &= 0x3FFFF; //Zero out all but 18 bits
-
-      //     sense.green[sense.head] = tempLong;
-      //   }
-      
-      // ***************************************
-
         toGet -= activeLEDs * 3;
       }
 
