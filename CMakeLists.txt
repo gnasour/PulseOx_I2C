@@ -45,7 +45,7 @@ target_link_libraries(PulseOx_I2C
         pico_stdlib)
         
 # Modify the below lines to enable/disable output over UART/USB
-pico_enable_stdio_uart(PulseOx_I2C 0)
+pico_enable_stdio_uart(PulseOx_I2C 1)
 pico_enable_stdio_usb(PulseOx_I2C 1)
 
 

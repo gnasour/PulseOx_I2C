@@ -548,7 +548,7 @@ uint16_t check(void)
         memcpy(&tempLong, temp, sizeof(tempLong));
 	      tempLong &= 0x3FFFF; //Zero out all but 18 bits
         sense.red[sense.head] = tempLong; //Store this reading into the sense array
-        
+        printf("red=%d, ", tempLong);
 
         if (activeLEDs > 1)
         {
@@ -562,6 +562,7 @@ uint16_t check(void)
           memcpy(&tempLong, temp, sizeof(tempLong));
           tempLong &= 0x3FFFF; //Zero out all but 18 bits
           sense.IR[sense.head] = tempLong;
+          printf("IR=%d\n", tempLong);
         }
 
         toGet -= activeLEDs * 3;
@@ -697,40 +698,11 @@ int main()
     setup(ledBrightness, sampleAverage, ledMode, sampleRate, pulseWidth, adcRange);
     
     while (true) {
-      
-      
-
-
-      for (byte i = 25; i < 100; i++)
-    {
-      redBuffer[i - 25] = redBuffer[i];
-      irBuffer[i - 25] = irBuffer[i];
-    }
-
-    //take 25 sets of samples before calculating the heart rate.
-    for (byte i = 75; i < 100; i++)
-    {
-      while (available() == false) //do we have new data?
+    
+      while (available() == 0) //do we have new data?
         check(); //Check the sensor for new data
 
-     
-      redBuffer[i] = getRed();
-      irBuffer[i] = getIR();
       nextSample(); //We're finished with this sample so move to next sample
 
-      //send samples and calculation result to terminal program through UART
-      // printf(("red="));
-      // printf("%d\n", redBuffer[i]);
-      // printf((", ir="));
-      // printf("%d\n", irBuffer[i]);
-
-      
-
-      
-    }
-
-      
-      
-        
     }
 }

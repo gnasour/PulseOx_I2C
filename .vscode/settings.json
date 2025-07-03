@@ -39,6 +39,7 @@
     "files.associations": {
         "cstdio": "cpp",
         "i2c.h": "c",
-        "cstddef": "cpp"
+        "cstddef": "cpp",
+        "socket.h": "c"
     }
 }
