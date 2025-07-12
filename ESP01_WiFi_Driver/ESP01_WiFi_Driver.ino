@@ -6,8 +6,8 @@
 #define HI_BAUD 115200
 
 // Debug AP info
-const char* SSID = "ESP DATA TRANSFER";
-const char* pass = "ArdTest123";
+const char* SSID = "";
+const char* pass = "";
 
 // Host ip and port
 const uint16_t port = 10000;
