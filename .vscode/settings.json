@@ -41,5 +41,6 @@
         "i2c.h": "c",
         "cstddef": "cpp",
         "socket.h": "c"
-    }
+    },
+    "idf.flashType": "DFU"
 }
