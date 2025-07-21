@@ -1,6 +1,5 @@
 /***************************************************
- This is a library written for the Maxim MAX30102 Optical Smoke Detector
- It should also work with the MAX30102. However, the MAX30102 does not have a Green LED.
+ This is a library written for the Maxim MAX30102
 
  These sensors use I2C to communicate, as well as a single (optional)
  interrupt line that is not currently supported in this driver.
@@ -9,7 +8,8 @@
  BSD license, all text above must be included in any redistribution.
 
  Library modified to interface with RPi Pico's I2C library
- Removed variables, functions, and definitions specific to MAX30102 functionality
+ Removed variables, functions, and definitions specific to MAX30105 functionality,
+ particularly relating to the code configuring the unused green LED hardware
  --George Nassour 4/28/2025
  *****************************************************/
 
@@ -18,30 +18,10 @@
 #include <string.h>
 #include <stdlib.h>
 
-// Pico Defined Headers
-#include "pico/stdlib.h"
-#include "hardware/uart.h"
-
 // Max30102 Driver Headers
 #include "MAX30102.h"
 
-// I2C defines
-#define I2C_PORT i2c0
-#define I2C_SDA 4
-#define I2C_SCL 5
-
-// UART defines
-#define UART_ID uart0
-#define BAUD_RATE 115200
-#define UART_TX_PIN 0
-#define UART_RX_PIN 1
-
-uint8_t readByte;
-uint8_t readByteStream[I2C_BUFFER_LENGTH];
-uint8_t writePacket[2]; // writePacket[0] = device reg addr, writePacket[1] = val
-
-void transmitData(const uint32_t* data);
-
+// Use the default LED defined by the pico SDK
 void panic_blink()
 {
   while (true)
@@ -53,11 +33,12 @@ void panic_blink()
   }
 }
 
+
 //
 // Initialization
 //
 
-bool max30102_init(TwoWire *wirePort, uint32_t i2cSpeed, uint8_t i2caddr)
+bool init(TwoWire *wirePort, uint32_t i2cSpeed, uint8_t i2caddr)
 {
 
   _i2cPort = wirePort; // Grab which port the user wants us to use
@@ -592,6 +573,7 @@ uint16_t check(void)
       bytesLeftToRead -= toGet;
 
       // Request toGet number of bytes from sensor
+      uint8_t readByteStream[I2C_BUFFER_LENGTH];
       i2c_read_burst_blocking(_i2cPort, _i2caddr, readByteStream, toGet);
 
       while (toGet > 0)
@@ -602,9 +584,6 @@ uint16_t check(void)
         byte temp[sizeof(uint32_t)]; // Array of 4 bytes that we will convert into long
         uint32_t tempLong;
 
-        // Data pointer to transmit
-        uint32_t *data = calloc(2, sizeof(uint32_t));
-
         // Burst read three bytes - RED
         temp[3] = 0;
         temp[2] = readByteStream[0];
@@ -614,8 +593,7 @@ uint16_t check(void)
         // Convert array to long
         memcpy(&tempLong, temp, sizeof(tempLong));
         tempLong &= 0x3FFFF; // Zero out all but 18 bits
-        // sense.red[sense.head] = tempLong; //Store this reading into the sense array
-        data[0] = tempLong;
+        sense.red[sense.head] = tempLong; //Store this reading into the sense array
 
         if (activeLEDs > 1)
         {
@@ -628,11 +606,8 @@ uint16_t check(void)
           // Convert array to long
           memcpy(&tempLong, temp, sizeof(tempLong));
           tempLong &= 0x3FFFF; // Zero out all but 18 bits
-          // sense.IR[sense.head] = tempLong;
-          data[1] = tempLong;
+          sense.IR[sense.head] = tempLong;
         }
-
-        transmitData(data);
 
         toGet -= activeLEDs * 3;
       }
@@ -691,6 +666,7 @@ void bitMask(uint8_t reg, uint8_t mask, uint8_t thing)
 
 uint8_t readRegister8(uint8_t address, uint8_t reg)
 {
+  uint8_t readByte;
   i2c_write_blocking(_i2cPort, _i2caddr, &reg, 1, true);
   i2c_read_blocking(_i2cPort, _i2caddr, &readByte, 1, false);
   return readByte;
@@ -698,89 +674,13 @@ uint8_t readRegister8(uint8_t address, uint8_t reg)
 
 void writeRegister8(uint8_t address, uint8_t reg, uint8_t value)
 {
+  uint8_t writePacket[2];
   writePacket[0] = reg;
   writePacket[1] = value;
   i2c_write_blocking(_i2cPort, _i2caddr, writePacket, 2, false);
 }
 
-void readLoop(uint8_t address, uint8_t reg)
-{
-  i2c_write_blocking(_i2cPort, _i2caddr, &reg, 1, true);
-  while (true)
-  {
-    i2c_read_blocking(_i2cPort, _i2caddr, &readByte, 1, true);
-    printf("%d\n", readByte);
-  }
-}
-
-void transmitData(const uint32_t *data)
-{
-  char buff[256];
-  const char *format = "red=%d, IR=%d";
-  sprintf(buff, format, data[0], data[1]);
-  uart_puts(UART_ID, buff);
-}
 
 //
 // End Low-level I2C Communication
 //
-
-#define MAX_BRIGHTNESS 255
-
-uint32_t irBuffer[100];     // infrared LED sensor data
-uint32_t redBuffer[100];    // red LED sensor data
-int32_t bufferLength = 100; // data length
-int32_t spo2;               // SPO2 value
-int8_t validSPO2;           // indicator to show if the SPO2 calculation is valid
-int32_t heartRate;          // heart rate value
-int8_t validHeartRate;      // indicator to show if the heart rate calculation is valid
-byte pulseLED = 11;         // Must be on PWM pin
-byte readLED = 13;          // Blinks with each data read
-
-int main()
-{
-  int ack;
-
-  size_t nBytes;
-
-  // Debug functions init (USB serial & onboard LED)
-  stdio_init_all();
-  gpio_init(PICO_DEFAULT_LED_PIN);
-  gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
-
-  // // Set up our UART
-  uart_init(UART_ID, BAUD_RATE);
-  // Set the TX and RX pins by using the function select on the GPIO
-  // Set datasheet for more information on function select
-  gpio_set_function(UART_TX_PIN, GPIO_FUNC_UART);
-  gpio_set_function(UART_RX_PIN, GPIO_FUNC_UART);
-
-  // I2C Init
-  i2c_init(I2C_PORT, 100 * 1000);
-  gpio_set_function(I2C_SDA, GPIO_FUNC_I2C);
-  gpio_set_function(I2C_SCL, GPIO_FUNC_I2C);
-  gpio_pull_up(I2C_SDA);
-  gpio_pull_up(I2C_SCL);
-
-  // Pulse ox init
-  max30102_init(I2C_PORT, I2C_SPEED_FAST, MAX30102_ADDRESS);
-
-  // Pulse Ox setup initial values
-  byte ledBrightness = 80; // Options: 0=Off to 255=50mA
-  byte sampleAverage = 4;  // Options: 1, 2, 4, 8, 16, 32
-  byte ledMode = 2;        // Options: 1 = Red only, 2 = Red + IR, 3 = Red + IR + Green
-  byte sampleRate = 100;   // Options: 50, 100, 200, 400, 800, 1000, 1600, 3200
-  int pulseWidth = 411;    // Options: 69, 118, 215, 411
-  int adcRange = 16384;    // Options: 2048, 4096, 8192, 16384
-
-  setup(ledBrightness, sampleAverage, ledMode, sampleRate, pulseWidth, adcRange);
-
-  while (true)
-  {
-
-    while (available() == 0) // do we have new data?
-      check();               // Check the sensor for new data
-
-    nextSample(); // We're finished with this sample so move to next sample
-  }
-}
