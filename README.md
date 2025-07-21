@@ -1,0 +1,1 @@
+This project aims to port the SparkFun MAX30102 library to the RPi Pico SDK. The library was rewritten in C, but leaves all original functionality as is. Only system-dependent features, such as those implementing the I2C protocol, were modified to work with Pico microcontrollers. Otherwise, this library functions exactly as the original on the Arduino SDK.
